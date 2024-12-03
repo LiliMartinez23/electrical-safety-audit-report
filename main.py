@@ -1,9 +1,9 @@
-from flask import Flask, render_template, request, jsonify
+import ttkbootstrap as ttk
 import mysql.connector
+from ttkbootstrap.constants import *
+from mysql.connector import Error
+from tkinter import messagebox
 
-app = Flask(__name__)
-
-# Database connection
 def fetch_data(query):
     """Fetch data from the database based on the given query."""
     try:
@@ -18,41 +18,80 @@ def fetch_data(query):
         result = cursor.fetchall()
         conn.close()
         return result
-    except mysql.connector.Error as err:
-        return {"error": str(err)}
+    except Error as err:
+        messagebox.showerror("Database error", f"Error: {err}")
+        return []
+
+def populate_table(table, data, columns):
+    """Populate a Treeview widget with data."""
+    for column in columns:
+        table.heading(column, text=column)
+        table.column(column, anchor='center')
+    for row in data:
+        table.insert("", "end", values=row)
+
+def create_table_frame(parent, query, columns):
+    """Create a frame containing a table displaying data from the database."""
+    frame = ttk.Frame(parent)
     
-@app.route('/')
-def index():
-    """Home page with navigation to different tables."""
-    return render_template("index.html")
-
-@app.route('/location')
-def location():
-    """Location table."""
-    query = "SELECT * FROM location"
+    # Table widget
+    table = ttk.Treeview(frame, columns=columns, show="headings", bootstyle=INFO)
+    table.pack(expand=True, fill="both", padx=10, pady=10)
+    
+    # Fetch and populate data
     data = fetch_data(query)
-    columns = ["component_ID", "component_Name", "component_Status", 
-               "component_Condition", "location_ID", "last_Inspected", "notes"]
-    return render_template("components.html", data=data, columns=columns)
+    populate_table(table, data, columns)
+    
+    return frame
 
-@app.route('/components')
-def components():
-    """Components table."""
-    query = "SELECT * FROM components"
-    data = fetch_data(query)
-    columns = ["location_ID", "business_Name", "address_Name", "contact_Info", 
-               "building_Name", "floor_Num", "room_Num", "property_Type"]
-    return render_template("location.html", data=data, columns=columns)
+def switch_frame(parent, frame):
+    """Switch the displayed frame."""
+    for child in parent.winfo_children():
+        child.pack_forget()  # Hide all frames
+    frame.pack(expand=True, fill="both")  # Show the selected frame
 
-@app.route('/inspection')
-def inspection():
-    """Inspection table."""
-    query = "SELECT * FROM inspection"
-    data = fetch_data(query)
-    columns = ["inspection_ID", "component_ID", "inspection_type", 
-               "inspection_Name", "inspection_Date", "issue_Description", 
-               "resolution_Description", "inspection_Status", "next_Inspection"]
-    return render_template("inspection.html", data=data, columns=columns)
+# Main application window
+def main():
+    # Create a ttkbootstrap window
+    root = ttk.Window(themename="darkly")
+    root.title("Electrical Safety Audit")
+    root.geometry("800x600")  # Set a larger window size for better usability
+    
+    # Main container for frames
+    container = ttk.Frame(root)
+    container.pack(expand=True, fill="both")
 
-if __name__ == '__main__':
-    app.run(debug=True)
+    # Create frames for each table
+    location_frame = create_table_frame(
+        container,
+        "SELECT * FROM location",
+        ["ID", "Business", "Address", "Contact", "Building", "Floor", "Room #", "Property Type"]
+    )
+    
+    components_frame = create_table_frame(
+        container,
+        "SELECT * FROM components",
+        ["ID", "Component", "Status", "Condition", "Location", "Last Inspection", "Notes"]
+    )
+    
+    inspection_frame = create_table_frame(
+        container,
+        "SELECT * FROM inspection",
+        ["ID", "Component", "Type", "Inspector", "Date", "Issue", "Solution", "Status", "Upcoming"]
+    )
+
+    # Create a button panel for switching frames
+    button_panel = ttk.Frame(root, bootstyle=PRIMARY)
+    button_panel.pack(fill="x")
+
+    ttk.Button(button_panel, text="Location", bootstyle=INFO, command=lambda: switch_frame(container, location_frame)).pack(side="left", padx=5, pady=5)
+    ttk.Button(button_panel, text="Components", bootstyle=INFO, command=lambda: switch_frame(container, components_frame)).pack(side="left", padx=5, pady=5)
+    ttk.Button(button_panel, text="Inspection", bootstyle=INFO, command=lambda: switch_frame(container, inspection_frame)).pack(side="left", padx=5, pady=5)
+    
+    # Start with the first frame displayed
+    switch_frame(container, location_frame)
+    
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()
