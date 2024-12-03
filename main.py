@@ -9,8 +9,8 @@ def fetch_data(query):
     try:
         conn = mysql.connector.connect(
             host="localhost",
-            user="root"
-            password="THippo3120!"
+            user="root",
+            password="THippo3120!",
             database="audit"
         )
         cursor = conn.cursor()
