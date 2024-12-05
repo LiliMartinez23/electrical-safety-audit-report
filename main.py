@@ -214,7 +214,148 @@ def create_add_entry_frame_components(parent, table_frame, container, main_menu)
 
     return frame
 
+# Creating add entry form for inspection table
+def create_add_entry_frame_inspection(parent, table_frame, container, main_menu):
+    """Create a frame for adding a new entry to the inspection table."""
+    frame = ttk.Frame(parent)
 
+    # Variable for form fields
+    component_var = StringVar()
+    type_var = StringVar()
+    inspector_var = StringVar()
+    date_var = StringVar()
+    issue_var = StringVar()
+    solution_var = StringVar()
+    status_var = StringVar()
+    upcoming_var = StringVar()
+
+    # Row counter
+    row = 0
+
+    # Component options
+    ttk.Label(
+        frame,
+        text="Component",
+        bootstyle=INFO
+    ).grid(row=row, column=0, padx=10, pady=5, sticky="e")
+    components = fetch_data("SELECT component_ID, component_Name FROM components")
+    component_options = [f"{comp[0]} - {comp[1]}" for comp in components]
+    component_var.set(component_options[0] if component_options else "")
+    ttk.Combobox(
+        frame,
+        textvariable=component_var,
+        values=component_options,
+        bootstyle=INFO
+    ).grid(row=row, column=1, padx=10, pady=5, sticky="w")
+    row += 1
+
+    # Type
+    ttk.Label(
+        frame,
+        text="Type",
+        bootstyle=INFO
+    ).grid(row=row, column=0, padx=10, pady=5, sticky="e")
+    ttk.Entry(
+        frame,
+        textvariable=type_var,
+        bootstyle=INFO
+    ).grid(row=row, column=1, padx=10, pady=5, sticky="w")
+    row += 1
+
+    # Inspector
+    ttk.Label(frame, text="Inspector", bootstyle=INFO).grid(row=row, column=0, padx=10, pady=5, sticky="e")
+    ttk.Entry(frame, textvariable=inspector_var, bootstyle=INFO).grid(row=row, column=1, padx=10, pady=5, sticky="w")
+    row += 1
+
+    # Date
+    ttk.Label(frame, text="Date", bootstyle=INFO).grid(row=row, column=0, padx=10, pady=5, sticky="e")
+    ttk.Entry(frame, textvariable=date_var, bootstyle=INFO).grid(row=row, column=1, padx=10, pady=5, sticky="w")
+    row += 1
+
+    # Issue
+    ttk.Label(frame, text="Issue", bootstyle=INFO).grid(row=row, column=0, padx=10, pady=5, sticky="e")
+    ttk.Entry(frame, textvariable=issue_var, bootstyle=INFO).grid(row=row, column=1, padx=10, pady=5, sticky="w")
+    row += 1
+
+    # Solution
+    ttk.Label(frame, text="Solution", bootstyle=INFO).grid(row=row, column=0, padx=10, pady=5, sticky="e")
+    ttk.Entry(frame, textvariable=solution_var, bootstyle=INFO).grid(row=row, column=1, padx=10, pady=5, sticky="w")
+    row += 1
+
+    # Status
+    ttk.Label(frame, text="Status", bootstyle=INFO).grid(row=row, column=0, padx=10, pady=5, sticky="e")
+    status_options = ["Resolved", "Unresolved", "In Progress"]
+    status_var.set(status_options[0])  # Default value
+    for idx, option in enumerate(status_options):
+        ttk.Radiobutton(frame, text=option, variable=status_var, value=option, bootstyle=INFO).grid(row=row, column=1 + idx, padx=5, pady=5, sticky="w")
+    row += 1
+
+    # Upcoming
+    ttk.Label(frame, text="Upcoming", bootstyle=INFO).grid(row=row, column=0, padx=10, pady=5, sticky="e")
+    ttk.Entry(frame, textvariable=upcoming_var, bootstyle=INFO).grid(row=row, column=1, padx=10, pady=5, sticky="w")
+    row += 1
+
+    # Submit button
+    def submit_entry():
+        component_selection = component_var.get()
+        inspection_type = type_var.get()
+        inspector = inspector_var.get()
+        date = date_var.get()
+        issue = issue_var.get()
+        solution = solution_var.get()
+        status = status_var.get()
+        upcoming = upcoming_var.get()
+
+        # Extract component_ID from component selection
+        if component_selection:
+            component_ID = component_selection.split(" - ")[0]
+        else: 
+            component_ID = None
+
+        # Validate required fields
+        if not all([component_ID, inspection_type.strip(), inspector.strip(), date.strip(), status.strip()]):
+            messagebox.showwarning("Validation Error", "Fields 'Component', 'Type', 'Inspector', 'Date', and 'Status' are required.")
+            return
+        
+        # Prepare and execute the INSERT query
+        query = """
+            INSERT INTO inspection (component_ID, inspection_Type, inspector_Name, inspection_Date, issue_Description, resolution_Description, inspection_Status, next_Inspection)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """
+
+        params = (component_ID, inspection_type, inspector, date, issue, solution, status, upcoming)
+
+        execute_query(query, params)
+
+        # Update the inspection table display
+        data = fetch_data("SELECT * FROM inspection")
+        table_frame.delete(*table_frame.get_children())
+        for row_data in data:
+            table_frame.insert("", "end", values=row_data)
+
+        # Switch back to the table view
+        switch_frame(parent, container)
+
+    # Submit button
+    ttk.Button(
+        frame,
+        text="Submit",
+        bootstyle=SUCCESS,
+        command=submit_entry
+    ).grid(row=row, column=0, columnspan=2, pady=10)
+    row += 1
+
+    # Back button
+    ttk.Button(
+        frame,
+        text="Back to Table",
+        bootstyle=SECONDARY,
+        command=lambda: switch_frame(parent, container)
+    ).grid(row=row, column=0, columnspan=2, pady=10)
+
+    return frame
+
+# Main window
 def main():
     root = ttk.Window(themename="darkly")
     root.title("Electrical Safety Audit")
@@ -255,10 +396,17 @@ def main():
     )
 
     # Inspection
-    inspection_frame, _ = create_table_frame(
+    inspection_frame, inspection_table = create_table_frame(
         container,
         "SELECT * FROM inspection",
         ["ID", "Component", "Type", "Inspector", "Date", "Issue", "Solution", "Status", "Upcoming"]
+    )
+
+    add_entry_frame_inspection = create_add_entry_frame_inspection(
+        container,
+        inspection_table,
+        inspection_frame,
+        main_menu
     )
 
     # Create a custom style for orange button
@@ -336,6 +484,14 @@ def main():
         style="Custom.Orange.TButton",
         command=lambda: switch_frame(container, inspection_frame)
     ).pack(pady=10)
+
+    # Add "Add Entry" button to Inspection Frame
+    ttk.Button(
+        inspection_frame,
+        text="Add Entry",
+        bootstyle=SUCCESS,
+        command=lambda: switch_frame(container, add_entry_frame_inspection)
+    ).pack(side="left", padx=10, pady=10)
 
     for frame, _ in [(location_frame, location_table), (components_frame, None), (inspection_frame, None)]:
         ttk.Button(
